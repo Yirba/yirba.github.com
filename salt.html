@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hashing and salting passwords</title>
+<link href="http://twitter.github.com/bootstrap/assets/css/bootstrap.css" rel="stylesheet">
+<style>
+html {
+	width: 80%;
+	padding-left: 10%;
+}
+
+.sign {
+	text-align: right;
+}
+</style>
+</head>
+<body>
+<h1>Hashing and salting passwords</h1>
+
+<p>As a software developer, the topic of how to build secure computer systems often comes up. Ensuring your system is secure is one of the most important things you must do when creating it. There's nothing worse than a system which can do all sorts of amazing things, yet is basically unusable due to the vulnerabilities it features.</p>
+
+<p>Improperly implemented password systems is something I've seen time and time again. It's incredibly frustrating to see a vulnerable password system, since it's actually incredibly easy to implement a secure one.</p>
+
+<p>Firstly, let's look at the simplest and most insecure password system. Passwords are usually stored in a database, listed with all the details of that particular user. Here's an example:</p>
+
+<pre>
++---------+----------+----------+
+| user_id | username | password |
++---------+----------+----------+
+| 0000001 | jgeorge  | apples5  |
+| 0000002 | cpace    | sheep49  |
+| 0000003 | lruth    | books500 |
++---------+----------+----------+
+</pre>
+
+<p>When the user wants to log in, the password they enter into the system is checked against the password stored in the database. If the passwords match, the user is authorised to proceed.</p>
+
+<p>This system is very insecure, since the user's password is stored in plaintext, and is viewable by anyone who has access to the database. If a hacker ever gained access to the database, they'd be able to see the passwords and potentially use them on email accounts, bank accounts and other websites.</p>
+
+<h2>Hashing</h2>
+
+<p>We need a way to make this system more secure. A way to implement a password system which doesn't require the actual password being stored in the database. The solution to this is hashing.</p>
+
+<p>Hashing is a one-way cryptographic function, meaning that you can input a plaintext password, and it will output a piece of text which uniquely identifies that password. There is no way to reverse this process, making this a secure method for storing passwords. The database table now looks like this:</p>
+
+<pre>
++---------+----------+------------------------------------------------------------------+
+| user_id | username | password_hash                                                    |
++---------+----------+------------------------------------------------------------------+
+| 0000001 | jgeorge  | baf1c06ef4feb837d820135ca008de578806ba5e069099a4a279fcc92137b925 |
+| 0000002 | cpace    | c2b4e3c35289d222be0661434d8392f97050444b3e0af21c3005664df658693e |
+| 0000003 | lruth    | db29e131592236b8c7c609c46a67a9f39fb6598e40479110b8b4ebd0fc8cd5b4 |
++---------+----------+------------------------------------------------------------------+
+</pre>
+
+<p>The passwords have now been hashed with the SHA-256 algorithm, and it is no longer possible to determine the original password from this hash. When the user wants to log in, the same hashing algorithm is applied to the entered password, and this hashed password is checked against the hashed password in the database.</p>
+
+<p>This is much more secure than storing the plaintext passwords, but this is still not entirely secure. Large, pre-calculated lists of hashed passwords (called 'rainbow tables') are freely available on the Internet, containing lots of different possible combinations. Part of a rainbow table might look like this, for example:</p>
+
+<pre>
++-----------+------------------------------------------------------------------+
+| plaintext | sha256                                                           |
++-----------+------------------------------------------------------------------+
+| a         | CA978112CA1BBDCAFAC231B39A23DC4DA786EFF8147C4E72B9807785AFEE48BB |
+| b         | 3E23E8160039594A33894F6564E1B1348BBD7A0088D42C4ACB73EEAED59C009D |
+| c         | 2E7D2C03A9507AE265ECF5B5356885A53393A2029D241394997265A1A25AEFC6 |
+| ...       | ...                                                              |
+| x         | 2D711642B726B04401627CA9FBAC32F5C8530FB1903CC4DB02258717921A4881 |
+| y         | A1FCE4363854FF888CFF4B8E7875D600C2682390412A8CF79B37D0B11148B0FA |
+| z         | 594E519AE499312B29433B7DD8A97FF068DEFCBA9755B6D5D00E84C524D67B06 |
+| 0         | 5FECEB66FFC86F38D952786C6D696C79C2DBC239DD4E91B46729D73A27FB57E9 |
+| 1         | 6B86B273FF34FCE19D6B804EFF5A3F5747ADA4EAA22F1D49C01E52DDB7875B4B |
+| 2         | D4735E3A265E16EEE03F59718B9B5D03019C07D8B6C51F90DA3A666EEC13AB35 |
+| ...       | ...                                                              |
+| 8         | 2C624232CDD221771294DFBB310ACA000A0DF6AC8B66B696D90EF06FDEFB64A3 |
+| 9         | 19581E27DE7CED00FF1CE50B2047E7A567C76B1CBAEBABE5EF03F7C3017BB5B7 |
+| aa        | 961B6DD3EDE3CB8ECBAACBD68DE040CD78EB2ED5889130CCEB4C49268EA4D506 |
+| ab        | FB8E20FC2E4C3F248C60C39BD652F3C1347298BB977B8B4D5903B85055620603 |
+| ac        | F45DE51CDEF30991551E41E882DD7B5404799648A0A00753F44FC966E6153FC1 |
+| ...       | ...                                                              |
+| apples5   | BAF1C06EF4FEB837D820135CA008DE578806BA5E069099A4A279FCC92137B925 |
++-----------+------------------------------------------------------------------+
+</pre>
+
+<p>As you can see, each possible combination is hashed and stored in this table. This means that the plaintext password can be found simply by looking up the result of the hash. For example, if a hacker got hold of the example database above, they'd be able to find out jgeorge's password by searching for "BAF1C06EF4FEB837D820135CA008DE578806BA5E069099A4A279FCC92137B925". Then can then determine that the original password is "apples5".</p>
+
+<p>We've seen that just hashing passwords doesn't make our system as secure as we want it to be. What's the solution? Salting!</p>
+
+<h2>Salting</h2>
+
+<p>Salting is the process of concatenating a piece of text to a password before it is hashed. For example, jgeorge's password is "apples5". We can add a piece of text to the start of the password, "mysecuresalty" for example. Therefore, the salted password is "mysecuresaltyapples5". Our database table now looks like this:</p>
+
+<pre>
++---------+----------+-----------------------+
+| user_id | username | password_salt         |
++---------+----------+-----------------------+
+| 0000001 | jgeorge  | mysecuresaltyapples5  |
+| 0000002 | cpace    | mysecuresaltysheep49  |
+| 0000003 | lruth    | mysecuresaltybooks500 |
++---------+----------+-----------------------+
+</pre>
+
+<p>We then apply the hash function to the salted password as earlier:</p>
+
+<pre>
++---------+----------+------------------------------------------------------------------+
+| user_id | username | password_salt_hash                                               |
++---------+----------+------------------------------------------------------------------+
+| 0000001 | jgeorge  | f8adb4875a0f09027061d8ecd7e49b4f7e8fb8c45ea46236407db63bff703836 |
+| 0000002 | cpace    | 08d9991ac63c3c88351153ae9e8e47613da8f45635cc371561871774eda46a27 |
+| 0000003 | lruth    | 5d91968a115387f1cc0d78014f8f786bc710c255a164697248ad4b7d0131bd4c |
++---------+----------+------------------------------------------------------------------+
+</pre>
+
+<p>With this system, when the user tries to log in, their password is salted then hashed. The result is checked against the salted and hashed password in the database.</p>
+
+<p>We've created a brand new set of hashed passwords, but how is this more secure than hashing them without salting? Well, now it is not possible for hackers to use rainbow tables, since they'd need to know the salt to be able to work out what the hashes are. And even if they do find out the salt, they'd have to calculate a brand new rainbow table, something that's very time consuming, and hopefully you'd have warned the users about the security breach by then.</p>
+
+<p>Note: Although hashing and salting passwords are important for a secure system in case the database is hacked into, there's no substitute for having a secure database in the first place (protecting against SQL injections, etc.). Also note that even the system I've described above is still prone to vulnerabilities, and there are more effective ways to use salts, but that's beyond the scope of this article.</p>
+
+<p class="sign">--Yirba</p>
+
+</body>
+</html>
